@@ -1,4 +1,4 @@
-# Lancement depuis la racine du dépôt : docker compose -f infra/docker-compose.yml up -d
+# Depuis la racine du dépôt : make db (base seule) ou make api (API conteneurisée).
 name: shoppulse
 services:
   db:
@@ -12,6 +12,13 @@ services:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       retries: 10
+
+  api:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+    ports:
+      - "8000:8000"
 
 volumes:
   pgdata:
