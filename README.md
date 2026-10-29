@@ -1,14 +1,88 @@
 # ShopPulse : plateforme data & IA
 
-Mission de 10 jours pour ShopPulse, une marketplace e-commerce. Les données
-viennent du jeu public [Olist](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce),
-soit environ 100 000 commandes.
+**Le problème.** ShopPulse est une marketplace d'environ 3 000 vendeurs et 96 000 clients. Ses données
+sont éparpillées, et son marketing cible tout le monde alors que **97 % des clients n'achètent qu'une fois**.
+Ses retards de livraison (6,8 % des commandes) génèrent **32 % des avis négatifs**, que l'entreprise
+découvre après coup.
 
-> En cours. Le lot 1 (cadrage, arbitrage, architecture) reste à livrer.
+**Ce que la plateforme apporte**, en 10 jours, sur les données réelles
+[Olist](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce) (environ 100 000 commandes) :
+
+| Pour | Réponse | Résultat clé |
+|---|---|---|
+| Direction | Tableau de bord, 5 indicateurs | 15,7 M R$ de CA, 6,8 % de retards, note de 4,1/5 |
+| Marketing | 3 personas, 3 campagnes chiffrées | ≈ 490 k R$ de CA additionnel, réachat de 3 % à 6 % |
+| Logistique | API de risque de retard | Le top 10 % des commandes à risque contient 37 % des retards |
+| Service client | API de sentiment des avis | 94 % des avis négatifs détectés |
+
+## Architecture
+
+```mermaid
+flowchart LR
+    subgraph Sources
+        CSV[(9 CSV Olist<br/>data/raw)]
+    end
+
+    subgraph Orchestration["Orchestration Prefect"]
+        ETL["etl_flow<br/>extraction → nettoyage →<br/>contrôles bloquants → COPY"]
+        TRAIN["train_flow<br/>gradient boosting retard<br/>TF-IDF sentiment"]
+    end
+
+    subgraph Stockage
+        PG[("PostgreSQL 16<br/>9 tables + vue delivered_orders")]
+        QR["docs/quality_report.md"]
+        ART["models/*.joblib"]
+    end
+
+    subgraph Consommation
+        NB["Notebooks<br/>EDA · RFM · modèles"]
+        DASH["Streamlit<br/>5 indicateurs (Direction)"]
+        API["FastAPI dans Docker<br/>/predict/delay · /predict/sentiment"]
+    end
+
+    subgraph Utilisateurs
+        DIR([Direction])
+        MKT([Marketing])
+        LOG([Logistique])
+        SAV([Service client])
+    end
+
+    CSV --> ETL --> PG
+    ETL --> QR
+    PG --> TRAIN --> ART --> API
+    PG --> NB --> MKT
+    PG --> DASH --> DIR
+    API --> LOG
+    API --> SAV
+
+    subgraph CI["GitHub Actions (à chaque push ou PR)"]
+        direction TB
+        L[ruff + mypy] --> T["ETL ×2 sur l'échantillon<br/>pytest ≥ 50 %"] --> B["entraînement → docker build<br/>→ test de fumée de l'API"]
+    end
+```
+
+Les choix sont justifiés dans [`docs/arbitrage.md`](docs/arbitrage.md) (Prefect contre Airflow, Streamlit contre Metabase).
+Les principes de l'architecture sont dans [`docs/architecture.md`](docs/architecture.md).
+
+## Documentation
+
+| Document | Contenu |
+|---|---|
+| [Note de cadrage](docs/cadrage.md) | Enjeux, objectifs économiques, utilisateurs, planning, évolutions |
+| [Arbitrages techniques](docs/arbitrage.md) | Coût, délai, performance, pérennité |
+| [Architecture](docs/architecture.md) | Schéma cible et principes |
+| [MLD](docs/mld.md) | Modèle relationnel et choix de modélisation |
+| [Rapport qualité](docs/quality_report.md) | Avant/après, généré par le pipeline |
+| [Note éthique](docs/ethique.md) | Biais par région, RGPD, limites d'usage |
+| [Rétrospective](docs/retro.md) | Écarts avec la feuille de route, ce que je referais |
 
 ## Démarrage rapide
 
 Prérequis : [uv](https://docs.astral.sh/uv/), Docker et `make`.
+
+```bash
+git clone https://github.com/oskano14/SSE_DIA2.git && cd SSE_DIA2
+```
 
 ```bash
 make install   # dépendances + création de .env (à adapter)
@@ -168,11 +242,33 @@ curl -X POST localhost:8000/predict/sentiment -H 'content-type: application/json
 ```
 dashboards/    tableau de bord Streamlit et capture
 data/sample/   échantillon (< 1 Mo par fichier), généré par make sample
-docs/          MLD, rapport qualité, résultats SQL
+docs/          cadrage, arbitrage, architecture, MLD, qualité, éthique, rétro
 infra/         Dockerfile, docker-compose
-notebooks/     EDA, tests statistiques, segmentation
+notebooks/     EDA, tests statistiques, segmentation, modèles
 pipelines/     flows Prefect et scripts de génération
 sql/           schéma et requêtes d'analyse
 src/shoppulse/ package Python
-tests/         tests unitaires et tests de données
+tests/         tests unitaires, tests de données et tests de l'API
 ```
+
+## Auteur
+
+Dorian ([@oskano14](https://github.com/oskano14)). Projet individuel, seconde session DIA2 2025-2026.
+
+## Usage de l'IA
+
+J'ai utilisé l'assistant **Claude Code** (Anthropic) comme binôme de programmation tout au long du projet.
+
+- **Ce que l'IA a fait** : proposer une structure, écrire une première version du code, des tests et des
+  notebooks, rédiger les brouillons de la documentation, et diagnostiquer des erreurs (dépendance manquante dans
+  Docker, taille de l'image).
+- **Ce que j'ai décidé et vérifié** :
+  - les principes de code (KISS, PEP 8, DRY) et la stack (Prefect, Streamlit) ;
+  - la relecture et la validation de chaque lot ;
+  - les commits et l'intégration par pull request.
+- **Garde-fous** :
+  - chaque chiffre cité vient d'une exécution réelle du pipeline ou des notebooks sur la base chargée, et aucun résultat n'est saisi à la main ;
+  - le code est contrôlé par ruff, mypy, 73 tests et la CI ;
+  - les traitements s'exécutent en local. Pendant le développement, l'assistant n'a vu que des extraits
+    (agrégats, quelques avis d'exemple). Le jeu Olist est public et pseudonymisé, mais sur des données
+    clients réelles, ce mode de travail devrait être validé par le DPO.
