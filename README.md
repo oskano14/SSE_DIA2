@@ -4,7 +4,7 @@ Mission de 10 jours pour ShopPulse, une marketplace e-commerce. Les données
 viennent du jeu public [Olist](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce),
 soit environ 100 000 commandes.
 
-> En cours. Les lots 1 (cadrage) et 5 (API) restent à livrer.
+> En cours. Le lot 1 (cadrage, arbitrage, architecture) reste à livrer.
 
 ## Démarrage rapide
 
@@ -14,9 +14,13 @@ Prérequis : [uv](https://docs.astral.sh/uv/), Docker et `make`.
 make install   # dépendances + création de .env (à adapter)
 make db        # PostgreSQL 16 dans Docker
 make etl       # charge data/raw/ (ou data/sample/ si RAW_DIR=data/sample)
-make test      # tests unitaires + tests de données
+make train     # entraîne les modèles -> models/
+make api       # API conteneurisée : http://localhost:8000/docs
+make test      # tests unitaires + tests de données + tests API
 make dashboard # tableau de bord Direction sur http://localhost:8501
 ```
+
+Comptez environ 10 minutes sur le jeu complet, dont environ 1 min pour l'ETL et 1 min pour l'entraînement.
 
 Les 9 CSV Olist sont à déposer dans `data/raw/`. Ce dossier n'est pas versionné.
 Pour essayer sans télécharger le jeu complet, on peut utiliser l'échantillon
@@ -117,14 +121,47 @@ On entraîne directement sur le portugais, avec 39 000 avis. Les notes de 4-5 et
 Les deux modèles sont à égalité. On sert la baseline, qui est plus légère et plus explicable. Les plaintes
 portent d'abord sur la livraison : « não recebi », « não chegou », « demora ».
 
+## API conteneurisée (Lot 5)
+
+L'API FastAPI ([`api.py`](src/shoppulse/api.py)) expose un endpoint par modèle. Les entrées sont
+validées par Pydantic, et la documentation OpenAPI interactive est disponible sur `/docs`.
+
+| Endpoint | Rôle |
+|---|---|
+| `GET /health` | État du service et métriques des modèles chargés |
+| `POST /predict/delay` | Probabilité de retard d'une commande et alerte « risque élevé » (top 10 %) |
+| `POST /predict/sentiment` | Sentiment d'un avis en portugais |
+
+```bash
+curl -X POST localhost:8000/predict/delay -H 'content-type: application/json' -d '{
+  "customer_zip_code_prefix": "69005", "seller_id": "6560211a19b47992c3666cc44a7e94c0",
+  "purchase_timestamp": "2018-03-10T14:30:00", "estimated_delivery_date": "2018-03-20",
+  "n_items": 1, "total_price": 129.9, "total_freight": 40, "total_weight_g": 800}'
+# {"late_probability":0.881,"high_risk":true,"threshold":0.6976}
+
+curl -X POST localhost:8000/predict/sentiment -H 'content-type: application/json' \
+  -d '{"text": "Não recebi o produto, péssimo"}'
+# {"sentiment":"negative","positive_probability":0.0002}
+```
+
+- **Fonctionnement autonome** : les modèles sont produits par [`pipelines/train.py`](pipelines/train.py), un flow Prefect,
+  puis copiés dans l'image. L'API ne dépend donc pas de la base : les correspondances vendeur et code postal sont
+  embarquées dans l'artefact.
+- **Erreurs** : une entrée invalide renvoie **422** (code postal sur 5 chiffres, montants positifs, date estimée
+  postérieure à l'achat). Un vendeur ou un code postal inconnu renvoie **404**.
+- **Image** : elle tourne sous un utilisateur non root et dispose d'un `HEALTHCHECK`. La CI entraîne les modèles sur
+  l'échantillon, construit l'image, lance le conteneur et l'interroge (test de fumée).
+
 ## Qualité du code
 
 - Le code est organisé en package `src/shoppulse`. Il est typé (`mypy --strict`)
   et vérifié par ruff, qui applique PEP 8 et l'ordre des imports.
 - Les tests utilisent pytest, avec une couverture minimale de 50 % imposée par la CI.
   Les tests de données tournent sur la base chargée.
-- La CI GitHub Actions comprend trois jobs : lint, tests sur une base PostgreSQL
-  alimentée par l'échantillon, puis build de l'image Docker.
+- La CI GitHub Actions comprend deux jobs :
+  - **lint** : ruff et mypy ;
+  - **test** : ETL lancé deux fois sur l'échantillon, puis pytest, entraînement, build
+    de l'image et test de fumée du conteneur.
 
 ## Arborescence
 
