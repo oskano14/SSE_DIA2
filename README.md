@@ -4,7 +4,7 @@ Mission de 10 jours pour ShopPulse, une marketplace e-commerce. Les données
 viennent du jeu public [Olist](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce),
 soit environ 100 000 commandes.
 
-> En cours. Les lots 1 (cadrage), 4 (modèles) et 5 (API) restent à livrer.
+> En cours. Les lots 1 (cadrage) et 5 (API) restent à livrer.
 
 ## Démarrage rapide
 
@@ -77,6 +77,45 @@ Le pipeline se déroule ainsi : **extraction → nettoyage → contrôles bloqua
   Les hypothèses de conversion restent à valider par un test A/B.
 
 ![Tableau de bord Direction](dashboards/dashboard.jpg)
+
+## Modèles (Lot 4)
+
+| Livrable | Emplacement |
+|---|---|
+| Feature engineering justifié | [`features.py`](src/shoppulse/features.py), [notebook 03](notebooks/03_delay_model.ipynb), section 1 |
+| Retard : baseline et 2 algorithmes, validation croisée, importance | [`notebooks/03_delay_model.ipynb`](notebooks/03_delay_model.ipynb) |
+| Audit d'équité par région | notebook 03, section 6, [`fairness.py`](src/shoppulse/fairness.py) |
+| Sentiment : TF-IDF + régression logistique contre un réseau PyTorch | [`notebooks/04_sentiment.ipynb`](notebooks/04_sentiment.ipynb) |
+| Note éthique | [`docs/ethique.md`](docs/ethique.md) |
+
+### Retard de livraison (Logistique)
+
+Le modèle classe les commandes par risque. Il a été comparé sur 96 000 commandes, en validation croisée
+stratifiée à 5 plis.
+
+| Modèle | PR-AUC | ROC-AUC |
+|---|---|---|
+| Baseline (taux moyen) | 0,07 | 0,50 |
+| Régression logistique | 0,15 | 0,69 |
+| **Gradient boosting** | **0,23** | **0,77** |
+
+- **Usage** : en contrôlant les **10 % de commandes les plus risquées**, la logistique intercepte **37 %
+  des retards**.
+- **Variables clés** : l'historique du vendeur, la distance et le délai promis.
+- **Équité** : le Nordeste reçoit 2,8 fois plus de fausses alertes. Le modèle ne doit servir qu'à
+  des actions **protectrices** pour le client (voir la [note éthique](docs/ethique.md)).
+
+### Sentiment des avis (Service client)
+
+On entraîne directement sur le portugais, avec 39 000 avis. Les notes de 4-5 et de 1-2 servent d'étiquettes.
+
+| Modèle | F1 macro | Rappel des négatifs | Entraînement |
+|---|---|---|---|
+| **TF-IDF + régression logistique** (servi) | **0,927** | 94 % | 0,6 s |
+| Réseau PyTorch (embeddings + MLP) | 0,923 | 95 % | 17 s |
+
+Les deux modèles sont à égalité. On sert la baseline, qui est plus légère et plus explicable. Les plaintes
+portent d'abord sur la livraison : « não recebi », « não chegou », « demora ».
 
 ## Qualité du code
 
