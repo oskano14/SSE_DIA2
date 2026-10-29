@@ -7,13 +7,13 @@ WORKDIR /app
 
 # Dépendances d'abord : couche mise en cache tant que uv.lock ne change pas.
 COPY pyproject.toml uv.lock README.md ./
-RUN uv sync --frozen --no-dev --no-install-project
+RUN uv sync --frozen --no-default-groups --no-install-project
 
 COPY src ./src
 COPY sql ./sql
 COPY pipelines ./pipelines
 COPY data/sample ./data/sample
-RUN uv sync --frozen --no-dev
+RUN uv sync --frozen --no-default-groups
 
 RUN useradd --create-home app && chown -R app /app
 USER app

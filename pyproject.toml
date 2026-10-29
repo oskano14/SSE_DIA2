@@ -10,9 +10,19 @@ dependencies = [
     "psycopg[binary]>=3.2",
     "prefect>=3.0",
     "tabulate>=0.10.0",
+    "scikit-learn>=1.9.1",
+    "scipy>=1.18.1",
 ]
 
 [dependency-groups]
+analysis = [
+    "ipykernel>=7.4.0",
+    "jupyter>=1.1.1",
+    "matplotlib>=3.11.2",
+    "nbconvert>=7.17.2",
+    "nbformat>=5.11.1",
+    "streamlit>=1.66.1",
+]
 dev = [
     "ruff>=0.6",
     "mypy>=1.11",
@@ -28,6 +38,9 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/shoppulse"]
 
+[tool.uv]
+default-groups = ["dev", "analysis"]
+
 [tool.ruff]
 line-length = 88
 target-version = "py312"
@@ -39,7 +52,7 @@ select = ["E", "W", "F", "I", "N", "UP", "B", "SIM"]
 python_version = "3.12"
 strict = true
 ignore_missing_imports = true
-files = ["src", "pipelines"]
+files = ["src", "pipelines", "dashboards"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
