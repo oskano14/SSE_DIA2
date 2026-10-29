@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 from sqlalchemy import Engine, text
 
+from shoppulse.config import SQL_DIR
 from shoppulse.etl.specs import TABLES
 from shoppulse.queries import describe, query_paths, run_query
 
@@ -49,3 +50,11 @@ def test_there_are_eight_documented_queries() -> None:
 @pytest.mark.parametrize("path", query_paths(), ids=lambda path: path.stem)
 def test_query_returns_rows(engine: Engine, path: Path) -> None:
     assert not run_query(path, engine).empty
+
+
+def test_dashboard_kpis_are_plausible(engine: Engine) -> None:
+    kpi = run_query(SQL_DIR / "kpis.sql", engine).iloc[0]
+    assert kpi.revenue > 0
+    assert kpi.orders > 0
+    assert 0 <= kpi.late_rate_pct <= 100
+    assert 1 <= kpi.avg_review_score <= 5
