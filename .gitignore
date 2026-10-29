@@ -22,3 +22,6 @@ coverage.xml
 
 # Outils locaux
 .claude/
+
+# Modèles produits par pipelines/train.py
+models/
