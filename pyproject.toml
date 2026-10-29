@@ -22,6 +22,7 @@ analysis = [
     "nbconvert>=7.17.2",
     "nbformat>=5.11.1",
     "streamlit>=1.66.1",
+    "torch>=2.15.0",
 ]
 dev = [
     "ruff>=0.6",
@@ -61,3 +62,12 @@ addopts = "--cov=shoppulse --cov-report=term-missing"
 
 [tool.prefect.server]
 analytics_enabled = false
+
+# PyTorch CPU sous Linux (CI, Docker) : évite plusieurs Go de dépendances CUDA.
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
