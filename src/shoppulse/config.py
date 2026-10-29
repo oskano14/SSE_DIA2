@@ -8,6 +8,10 @@ SQL_DIR = PROJECT_ROOT / "sql"
 DOCS_DIR = PROJECT_ROOT / "docs"
 SAMPLE_DIR = PROJECT_ROOT / "data" / "sample"
 
+# Mois complets du jeu Olist : avant 2017 et après août 2018, l'historique est
+# partiel et fausserait les tendances.
+FULL_MONTHS = ("2017-01-01", "2018-08-01")
+
 
 def _load_dotenv(path: Path = PROJECT_ROOT / ".env") -> None:
     """Charge un fichier .env minimal (CLE=valeur) sans écraser l'environnement."""

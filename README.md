@@ -4,7 +4,7 @@ Mission de 10 jours pour ShopPulse, une marketplace e-commerce. Les données
 viennent du jeu public [Olist](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce),
 soit environ 100 000 commandes.
 
-> En cours. Les lots 1 (cadrage), 3 (analyse), 4 (modèles) et 5 (API) restent à livrer.
+> En cours. Les lots 1 (cadrage), 4 (modèles) et 5 (API) restent à livrer.
 
 ## Démarrage rapide
 
@@ -15,6 +15,7 @@ make install   # dépendances + création de .env (à adapter)
 make db        # PostgreSQL 16 dans Docker
 make etl       # charge data/raw/ (ou data/sample/ si RAW_DIR=data/sample)
 make test      # tests unitaires + tests de données
+make dashboard # tableau de bord Direction sur http://localhost:8501
 ```
 
 Les 9 CSV Olist sont à déposer dans `data/raw/`. Ce dossier n'est pas versionné.
@@ -44,6 +45,39 @@ Le pipeline se déroule ainsi : **extraction → nettoyage → contrôles bloqua
   (`TRUNCATE` puis `COPY`). Une erreur laisse la base intacte, et deux exécutions
   donnent le même contenu. La CI lance d'ailleurs le pipeline deux fois.
 
+## Analyse et marketing (Lot 3)
+
+| Livrable | Emplacement |
+|---|---|
+| EDA : distributions, saisonnalité, géographie | [`notebooks/01_eda.ipynb`](notebooks/01_eda.ipynb) |
+| 2 tests statistiques motivés | même notebook, sections 5 et 6 |
+| Segmentation RFM + K-means, 3 personas, 3 actions chiffrées | [`notebooks/02_segmentation.ipynb`](notebooks/02_segmentation.ipynb) |
+| Tableau de bord, 5 indicateurs, branché sur la base | [`dashboards/app.py`](dashboards/app.py) |
+
+### Réponses métier
+
+- **Comment se porte l'activité ? (Direction)** Le chiffre d'affaires est de 15,7 M R$ sur environ
+  98 000 commandes, avec un panier moyen de 160 R$. 6,8 % des livraisons arrivent en retard, et la
+  note moyenne est de 4,1/5.
+- **Que disent les clients ? (Service client)** Le retard fait chuter la note : 4,3/5 pour une
+  commande à l'heure, 1,7/5 au-delà de 7 jours de retard. Un test de Mann-Whitney le confirme
+  (p ≈ 0, effet fort, r = 0,64).
+- **Où sont les retards ? (Logistique)** Le Nordeste subit 2 fois plus de retards que le Sud
+  (12,7 % contre 5,9 %). Un χ² confirme le lien avec la région (p ≈ 10⁻¹²⁰).
+- **Qui sont nos clients ? (Marketing)** 97 % des clients n'achètent qu'une fois. On distingue
+  3 personas :
+
+  | Persona | Clients | Action | Gain estimé |
+  |---|---|---|---|
+  | Récents | 35 % | -10 % sur un 2e achat, 30 jours après la livraison | ≈ 260 k R$ |
+  | Endormis | 62 % | Réactivation à -15 % pendant 15 jours | ≈ 154 k R$ |
+  | Fidèles | 3 % | Club fidélité avec livraison offerte | ≈ 73 k R$ |
+
+  Ces trois actions rapporteraient environ 490 k R$, et le taux de réachat passerait de 3 % à 6 %.
+  Les hypothèses de conversion restent à valider par un test A/B.
+
+![Tableau de bord Direction](dashboards/dashboard.jpg)
+
 ## Qualité du code
 
 - Le code est organisé en package `src/shoppulse`. Il est typé (`mypy --strict`)
@@ -56,9 +90,11 @@ Le pipeline se déroule ainsi : **extraction → nettoyage → contrôles bloqua
 ## Arborescence
 
 ```
+dashboards/    tableau de bord Streamlit et capture
 data/sample/   échantillon (< 1 Mo par fichier), généré par make sample
 docs/          MLD, rapport qualité, résultats SQL
 infra/         Dockerfile, docker-compose
+notebooks/     EDA, tests statistiques, segmentation
 pipelines/     flows Prefect et scripts de génération
 sql/           schéma et requêtes d'analyse
 src/shoppulse/ package Python
