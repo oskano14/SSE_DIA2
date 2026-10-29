@@ -1,0 +1,21 @@
+# Données complètes : jamais versionnées (seul data/sample/ l'est)
+data/raw/*
+!data/raw/.gitkeep
+*.zip
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.coverage
+coverage.xml
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Secrets
+.env
+
+# Divers
+.DS_Store
+.ipynb_checkpoints/
